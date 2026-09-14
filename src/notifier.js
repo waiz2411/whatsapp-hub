@@ -41,14 +41,8 @@ class Notifier {
     const message = msg?.message;
     if (!message) return null;
 
-    // Ignore internal protocol / reaction / sync messages
-    if (
-      message.protocolMessage ||
-      message.reactionMessage ||
-      message.senderKeyDistributionMessage ||
-      message.keyStateNotification ||
-      message.messageContextInfo
-    ) {
+    // Ignore pure protocol / reaction messages with no user content
+    if (message.protocolMessage || message.reactionMessage || message.senderKeyDistributionMessage) {
       return null;
     }
 
@@ -58,6 +52,8 @@ class Notifier {
       message.imageMessage?.caption ||
       message.videoMessage?.caption ||
       (message.documentMessage ? `[Document: ${message.documentMessage.fileName || 'file'}]` : null) ||
+      (message.imageMessage ? '[Photo]' : null) ||
+      (message.videoMessage ? '[Video]' : null) ||
       (message.audioMessage ? '[Voice Message]' : null) ||
       (message.contactMessage ? '[Contact Card]' : null) ||
       (message.locationMessage ? '[Location Shared]' : null);

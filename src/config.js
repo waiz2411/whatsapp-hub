@@ -10,7 +10,7 @@ const config = {
   mainPhoneNumber: cleanPhoneNumber(process.env.MAIN_PHONE_NUMBER || ''),
   accountsCount: parseInt(process.env.ACCOUNTS_COUNT || '4', 10),
   port: parseInt(process.env.PORT || '7860', 10),
-  debounceSeconds: parseInt(process.env.DEBOUNCE_SECONDS || '15', 10),
+  debounceSeconds: parseInt(process.env.DEBOUNCE_SECONDS || '3', 10),
   notificationStyle: (process.env.NOTIFICATION_STYLE || 'detailed').toLowerCase(),
   sessionsDir: path.join(__dirname, '..', 'sessions'),
   dataDir: path.join(__dirname, '..', 'data'),
