@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Multi-Hub & Alert Tracker</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(51, 65, 85, 0.8);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(71, 85, 105, 1);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased flex flex-col">
+
+  <!-- Header Navigation -->
+  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Brand -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-2xl font-bold">
+          💬
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            WhatsApp Multi-Hub
+            <span class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Active Monitor</span>
+          </h1>
+          <p class="text-xs text-slate-400">Tracks all 4 accounts & alerts your main WhatsApp on new replies</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center space-x-3">
+        <button onclick="testAlert()" class="inline-flex items-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow transition">
+          ⚡ Test Alert
+        </button>
+        <a href="/api/export" download class="inline-flex items-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          📥 Export Leads (CSV)
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
+    
+    <!-- Top Stats / Alert Config Banner -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Main Phone Alert Card -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Alerts Sent To</div>
+        <div class="mt-2 flex items-baseline justify-between">
+          <span id="mainPhoneDisplay" class="text-lg font-bold text-emerald-400">Loading...</span>
+          <button onclick="openSettingsModal()" class="text-xs text-indigo-400 hover:underline">Change</button>
+        </div>
+        <div class="mt-1 text-[11px] text-slate-500">Your personal WhatsApp receiving alerts</div>
+      </div>
+
+      <!-- Connected Accounts Count -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Connected Accounts</div>
+        <div class="mt-2 text-2xl font-bold text-white" id="connectedCount">0 / 4</div>
+        <div class="mt-1 text-[11px] text-slate-500">Active background sessions</div>
+      </div>
+
+      <!-- Total Leads Logged -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Leads Tracked</div>
+        <div class="mt-2 text-2xl font-bold text-indigo-400" id="totalLeadsCount">0</div>
+        <div class="mt-1 text-[11px] text-slate-500">Unique contacts stored in SQLite</div>
+      </div>
+
+      <!-- Incoming Messages -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Incoming Replies</div>
+        <div class="mt-2 text-2xl font-bold text-amber-400" id="totalMessagesCount">0</div>
+        <div class="mt-1 text-[11px] text-slate-500">Alerted to your main phone</div>
+      </div>
+
+    </div>
+
+    <!-- 4 Account Cards Grid -->
+    <div>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300">Business Accounts (1 – 4)</h2>
+        <span class="text-xs text-slate-400">Scan QR code once to link</span>
+      </div>
+
+      <div id="accountsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Dynamic Cards rendered via JS -->
+      </div>
+    </div>
+
+    <!-- Live Incoming Leads & Messages Tracker Table -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+      
+      <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            📋 Live Leads & Incoming Messages Tracker
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Automatically recorded whenever someone messages any of your 4 accounts</p>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <input type="text" id="leadSearchInput" oninput="filterLeads()" placeholder="Search leads or phone..." class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-56">
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="text-xs uppercase bg-slate-950 text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="px-5 py-3.5">Lead Phone Number</th>
+              <th class="px-5 py-3.5">Name / Contact</th>
+              <th class="px-5 py-3.5">Received On</th>
+              <th class="px-5 py-3.5">Messages</th>
+              <th class="px-5 py-3.5">Last Activity</th>
+              <th class="px-5 py-3.5 text-right">Quick Action</th>
+            </tr>
+          </thead>
+          <tbody id="leadsTableBody" class="divide-y divide-slate-800/60">
+            <tr>
+              <td colspan="6" class="px-5 py-10 text-center text-slate-500 text-xs">
+                No incoming replies yet. When a lead sends a message, they will instantly appear here and alert your main phone!
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white">Alert Settings</h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white">&times;</button>
+      </div>
+
+      <div class="space-y-4 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Your Main WhatsApp Phone Number</label>
+          <input type="text" id="settingMainPhone" placeholder="e.g. 923473201427 or 14155552671" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <p class="text-[11px] text-slate-500 mt-1">Include country code without '+', spaces, or dashes.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Notification Style</label>
+          <select id="settingNotificationStyle" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
+            <option value="detailed">Detailed (Includes preview & wa.me click-to-chat link)</option>
+            <option value="minimal">Minimal (Short alert notice)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Debounce Buffer (Seconds)</label>
+          <input type="number" id="settingDebounce" min="5" max="60" value="15" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
+          <p class="text-[11px] text-slate-500 mt-1">Groups rapid back-to-back texts into 1 alert.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">Cancel</button>
+        <button onclick="saveSettings()" class="px-4 py-2 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-500">Save Configuration</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentConfig = { accounts: [] };
+    let cachedLeads = [];
+
+    // Fetch Accounts
+    async function fetchAccounts() {
+      try {
+        const res = await fetch('/api/accounts');
+        currentConfig = await res.json();
+
+        // Main phone display
+        const phoneDisplay = document.getElementById('mainPhoneDisplay');
+        if (currentConfig.mainPhoneNumber) {
+          phoneDisplay.innerText = '+' + currentConfig.mainPhoneNumber;
+        } else {
+          phoneDisplay.innerText = 'Click to Set';
+        }
+
+        renderAccountCards();
+      } catch (err) {
+        console.error('Failed to fetch accounts:', err);
+      }
+    }
+
+    // Render 4 Account Cards
+    function renderAccountCards() {
+      let connectedCount = 0;
+      const grid = document.getElementById('accountsGrid');
+
+      grid.innerHTML = currentConfig.accounts.map(acc => {
+        const isConnected = acc.status === 'connected';
+        const isQr = acc.status === 'qr_ready' && acc.qrCode;
+        const isConnecting = acc.status === 'connecting';
+
+        if (isConnected) connectedCount++;
+
+        let statusBadge = '';
+        if (isConnected) {
+          statusBadge = `<span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">● Connected</span>`;
+        } else if (isQr) {
+          statusBadge = `<span class="px-2 py-0.5 rounded text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Scan QR</span>`;
+        } else if (isConnecting) {
+          statusBadge = `<span class="px-2 py-0.5 rounded text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">Connecting...</span>`;
+        } else {
+          statusBadge = `<span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-700 text-slate-400">Offline</span>`;
+        }
+
+        let content = '';
+        if (isConnected) {
+          content = `
+            <div class="text-center py-5 space-y-3">
+              <div class="w-14 h-14 mx-auto rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-3xl">📱</div>
+              <div>
+                <div class="text-xs text-slate-400">Active Business Number:</div>
+                <div class="text-base font-bold text-white mt-0.5">+${acc.phoneNumber || 'Unknown'}</div>
+              </div>
+              <button onclick="logoutAccount(${acc.id})" class="text-xs text-rose-400 hover:underline pt-2">Disconnect / Re-link</button>
+            </div>
+          `;
+        } else if (isQr) {
+          content = `
+            <div class="text-center py-2 space-y-2">
+              <div class="bg-white p-2 rounded-xl inline-block shadow mx-auto">
+                <img src="${acc.qrCode}" class="w-36 h-36 mx-auto rounded">
+              </div>
+              <div class="text-[11px] text-slate-400">Open WhatsApp &rarr; <b>Linked Devices</b> &rarr; <b>Link a Device</b></div>
+            </div>
+          `;
+        } else {
+          content = `<div class="text-center py-10 text-slate-500 text-xs">Initializing connection...</div>`;
+        }
+
+        return `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-2">
+              <h3 class="font-bold text-sm text-white">Business #${acc.id}</h3>
+              ${statusBadge}
+            </div>
+            <div class="flex-1 flex items-center justify-center">${content}</div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('connectedCount').innerText = `${connectedCount} / ${currentConfig.accounts.length}`;
+    }
+
+    // Fetch Leads & Stats
+    async function fetchStatsAndLeads() {
+      try {
+        const [statsRes, leadsRes] = await Promise.all([
+          fetch('/api/stats'),
+          fetch('/api/leads')
+        ]);
+        const stats = await statsRes.json();
+        cachedLeads = await leadsRes.json();
+
+        document.getElementById('totalLeadsCount').innerText = stats.totalLeads;
+        document.getElementById('totalMessagesCount').innerText = stats.incomingMessages;
+
+        renderLeads(cachedLeads);
+      } catch (err) {
+        console.error('Failed to fetch leads:', err);
+      }
+    }
+
+    // Render Leads Table
+    function renderLeads(leads) {
+      const tbody = document.getElementById('leadsTableBody');
+
+      if (!leads || leads.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-5 py-10 text-center text-slate-500 text-xs">No incoming replies yet. When a lead sends a message, they will instantly appear here and alert your main phone!</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = leads.map(l => {
+        // Format phone number cleanly
+        const cleanPhone = String(l.phone_number).replace(/[^0-9]/g, '');
+        const displayPhone = cleanPhone ? '+' + cleanPhone : 'Unknown';
+        const displayName = l.name && l.name !== cleanPhone ? l.name : '—';
+        const timeStr = l.last_contact_at ? new Date(l.last_contact_at).toLocaleString() : '—';
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="px-5 py-3.5 font-bold text-white tracking-wide">${displayPhone}</td>
+            <td class="px-5 py-3.5 text-slate-300">${displayName}</td>
+            <td class="px-5 py-3.5"><span class="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-300 font-medium">Business #${l.account_id}</span></td>
+            <td class="px-5 py-3.5 text-slate-300">${l.total_messages}</td>
+            <td class="px-5 py-3.5 text-xs text-slate-400">${timeStr}</td>
+            <td class="px-5 py-3.5 text-right">
+              <a href="https://wa.me/${cleanPhone}" target="_blank" class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 transition">
+                Open Chat ↗
+              </a>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Filter leads via search input
+    function filterLeads() {
+      const q = document.getElementById('leadSearchInput').value.toLowerCase();
+      const filtered = cachedLeads.filter(l => 
+        (l.phone_number && l.phone_number.includes(q)) ||
+        (l.name && l.name.toLowerCase().includes(q))
+      );
+      renderLeads(filtered);
+    }
+
+    // Disconnect / Reset Account
+    async function logoutAccount(id) {
+      if (!confirm(`Are you sure you want to disconnect Business #${id}?`)) return;
+      try {
+        await fetch(`/api/accounts/${id}/logout`, { method: 'POST' });
+        fetchAccounts();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Test Alert
+    async function testAlert() {
+      try {
+        const res = await fetch('/api/test-alert', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert('✅ ' + data.message);
+        } else {
+          alert('⚠️ ' + (data.error || 'Failed to send alert. Make sure at least one business account is connected!'));
+        }
+      } catch (err) {
+        alert('Test failed: ' + err.message);
+      }
+    }
+
+    // Settings Modal
+    function openSettingsModal() {
+      document.getElementById('settingMainPhone').value = currentConfig.mainPhoneNumber || '';
+      document.getElementById('settingNotificationStyle').value = currentConfig.notificationStyle || 'detailed';
+      document.getElementById('settingDebounce').value = currentConfig.debounceSeconds || 15;
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    async function saveSettings() {
+      const mainPhoneNumber = document.getElementById('settingMainPhone').value;
+      const notificationStyle = document.getElementById('settingNotificationStyle').value;
+      const debounceSeconds = document.getElementById('settingDebounce').value;
+
+      try {
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mainPhoneNumber, notificationStyle, debounceSeconds })
+        });
+        closeSettingsModal();
+        fetchAccounts();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Initial load & Polling
+    fetchAccounts();
+    fetchStatsAndLeads();
+    setInterval(() => {
+      fetchAccounts();
+      fetchStatsAndLeads();
+    }, 3000);
+  </script>
+</body>
+</html>

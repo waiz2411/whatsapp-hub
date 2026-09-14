@@ -1,0 +1,19 @@
+{
+  "name": "whatsapp-multi-hub",
+  "version": "1.0.0",
+  "description": "Multi-account WhatsApp hub with automatic reply alerts and local lead tracking",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.13",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "pino": "^9.4.0",
+    "qrcode": "^1.5.4",
+    "sqlite3": "^5.1.7"
+  }
+}
