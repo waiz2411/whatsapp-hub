@@ -40,13 +40,27 @@
             WhatsApp Multi-Hub
             <span class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Active Monitor</span>
           </h1>
-          <p class="text-xs text-slate-400">Tracks all 4 accounts & alerts your main WhatsApp on new replies</p>
+          <p class="text-xs text-slate-400">Tracks all accounts, powers bulk outreach & alerts main phone on replies</p>
         </div>
       </div>
 
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center space-x-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+        <button id="tabBtnAccounts" onclick="switchTab('accounts')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow transition flex items-center gap-1.5">
+          <span>📱</span> Accounts & Leads
+        </button>
+        <button id="tabBtnCampaigns" onclick="switchTab('campaigns')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition flex items-center gap-1.5">
+          <span>🚀</span> Daily Outreach
+        </button>
+        <button id="tabBtnAlerts" onclick="switchTab('alerts')" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition flex items-center gap-1.5">
+          <span>🔔</span> Alerts History
+          <span id="alertsCountBadge" class="hidden text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 font-bold border border-indigo-500/40">0</span>
+        </button>
+      </nav>
+
       <!-- Action Buttons -->
       <div class="flex items-center space-x-3">
-        <button onclick="testAlert()" class="inline-flex items-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow transition">
+        <button onclick="testAlert()" class="inline-flex items-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition">
           ⚡ Test Alert
         </button>
         <a href="/api/export" download class="inline-flex items-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
@@ -60,92 +74,242 @@
   <!-- Main Content Container -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
     
-    <!-- Top Stats / Alert Config Banner -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      
-      <!-- Main Phone Alert Card -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow">
-        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Alerts Sent To</div>
-        <div class="mt-2 flex items-baseline justify-between">
-          <span id="mainPhoneDisplay" class="text-lg font-bold text-emerald-400">Loading...</span>
-          <button onclick="openSettingsModal()" class="text-xs text-indigo-400 hover:underline">Change</button>
+    <!-- VIEW: ACCOUNTS & LEADS -->
+    <div id="viewAccounts" class="space-y-6">
+      <!-- Top Stats / Alert Config Banner -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Main Phone Alert Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow">
+          <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Alerts Sent To</div>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="mainPhoneDisplay" class="text-lg font-bold text-emerald-400">Loading...</span>
+            <button onclick="openSettingsModal()" class="text-xs text-indigo-400 hover:underline">Change</button>
+          </div>
+          <div class="mt-1 text-[11px] text-slate-500">Your personal WhatsApp receiving alerts</div>
         </div>
-        <div class="mt-1 text-[11px] text-slate-500">Your personal WhatsApp receiving alerts</div>
+
+        <!-- Connected Accounts Count -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
+          <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Connected Accounts</div>
+          <div class="mt-2 text-2xl font-bold text-white" id="connectedCount">0 / 4</div>
+          <div class="mt-1 text-[11px] text-slate-500">Active background sessions</div>
+        </div>
+
+        <!-- Total Leads Logged -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
+          <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Leads Tracked</div>
+          <div class="mt-2 text-2xl font-bold text-indigo-400" id="totalLeadsCount">0</div>
+          <div class="mt-1 text-[11px] text-slate-500">Unique contacts stored in SQLite</div>
+        </div>
+
+        <!-- Incoming Messages -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
+          <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Incoming Replies</div>
+          <div class="mt-2 text-2xl font-bold text-amber-400" id="totalMessagesCount">0</div>
+          <div class="mt-1 text-[11px] text-slate-500">Alerted to your main phone</div>
+        </div>
+
       </div>
 
-      <!-- Connected Accounts Count -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
-        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Connected Accounts</div>
-        <div class="mt-2 text-2xl font-bold text-white" id="connectedCount">0 / 4</div>
-        <div class="mt-1 text-[11px] text-slate-500">Active background sessions</div>
+      <!-- 4 Account Cards Grid -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300">Business Accounts (1 – 4)</h2>
+          <span class="text-xs text-slate-400">Scan QR code once to link</span>
+        </div>
+
+        <div id="accountsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Dynamic Cards rendered via JS -->
+        </div>
       </div>
 
-      <!-- Total Leads Logged -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
-        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Leads Tracked</div>
-        <div class="mt-2 text-2xl font-bold text-indigo-400" id="totalLeadsCount">0</div>
-        <div class="mt-1 text-[11px] text-slate-500">Unique contacts stored in SQLite</div>
-      </div>
+      <!-- Live Incoming Leads & Messages Tracker Table -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+        
+        <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              📋 Live Leads & Incoming Messages Tracker
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Automatically recorded whenever someone messages any of your accounts</p>
+          </div>
 
-      <!-- Incoming Messages -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow">
-        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Incoming Replies</div>
-        <div class="mt-2 text-2xl font-bold text-amber-400" id="totalMessagesCount">0</div>
-        <div class="mt-1 text-[11px] text-slate-500">Alerted to your main phone</div>
-      </div>
+          <div class="flex items-center space-x-2">
+            <input type="text" id="leadSearchInput" oninput="filterLeads()" placeholder="Search leads or phone..." class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-56">
+          </div>
+        </div>
 
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs uppercase bg-slate-950 text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-5 py-3.5">Lead Phone Number</th>
+                <th class="px-5 py-3.5">Name / Contact</th>
+                <th class="px-5 py-3.5">Received On</th>
+                <th class="px-5 py-3.5">Messages</th>
+                <th class="px-5 py-3.5">Last Activity</th>
+                <th class="px-5 py-3.5 text-right">Quick Action</th>
+              </tr>
+            </thead>
+            <tbody id="leadsTableBody" class="divide-y divide-slate-800/60">
+              <tr>
+                <td colspan="6" class="px-5 py-10 text-center text-slate-500 text-xs">
+                  No incoming replies yet. When a lead sends a message, they will instantly appear here and alert your main phone!
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
     </div>
 
-    <!-- 4 Account Cards Grid -->
-    <div>
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300">Business Accounts (1 – 4)</h2>
-        <span class="text-xs text-slate-400">Scan QR code once to link</span>
-      </div>
-
-      <div id="accountsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Dynamic Cards rendered via JS -->
-      </div>
-    </div>
-
-    <!-- Live Incoming Leads & Messages Tracker Table -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+    <!-- VIEW: DEDICATED DAILY OUTREACH SYSTEM -->
+    <div id="viewCampaigns" class="hidden space-y-6">
       
-      <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 class="text-base font-bold text-white flex items-center gap-2">
-            📋 Live Leads & Incoming Messages Tracker
+      <!-- Top Banner: Outreach Settings & Message Template -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-bold tracking-wider uppercase text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                10 to 15 Minute Pacing Guaranteed
+              </span>
+              <span class="text-[10px] font-bold tracking-wider uppercase text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
+                Dedicated Per-Number Queues
+              </span>
+            </div>
+            <h2 class="text-xl font-extrabold text-white mt-2 flex items-center gap-2">
+              <span>🚀</span> Daily Outreach System
+            </h2>
+            <p class="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+              Every connected WhatsApp number has its own dedicated daily lead queue. Messages are personalized with <code class="text-emerald-400 font-mono">{name}</code> and dispatched with a strict <b class="text-white">10 to 15-minute delay</b> between messages per number to completely avoid bans.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="fetchOutreachStatus()" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+              <span>🔄</span> Refresh Queues
+            </button>
+          </div>
+        </div>
+
+        <!-- Outreach Message Template & Preview -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-7 space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <span>✍️</span> Attached Outreach Message Template
+              </label>
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="insertOutreachTag('{name}')" class="px-2 py-0.5 text-xs font-semibold rounded bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50 border border-indigo-500/40 transition">
+                  + {name}
+                </button>
+                <button type="button" onclick="insertOutreachTag('{phone}')" class="px-2 py-0.5 text-xs font-semibold rounded bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50 border border-indigo-500/40 transition">
+                  + {phone}
+                </button>
+              </div>
+            </div>
+
+            <textarea id="outreachGlobalTemplateInput" oninput="updateOutreachPreview()" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 resize-none font-sans" placeholder="Hello {name}! Hope you are having a wonderful week..."></textarea>
+
+            <div class="flex items-center justify-between">
+              <p class="text-[11px] text-slate-500">
+                Attached in <code class="text-slate-400 font-mono">src/config.js</code>. Click save to apply changes.
+              </p>
+              <button onclick="saveOutreachTemplate()" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow transition">
+                💾 Save Template
+              </button>
+            </div>
+          </div>
+
+          <!-- Preview -->
+          <div class="lg:col-span-5 bg-slate-950 rounded-xl p-3.5 border border-slate-800/80 flex flex-col justify-between space-y-2">
+            <div>
+              <div class="text-[11px] font-semibold text-slate-400 flex items-center justify-between mb-1.5">
+                <span>💬 WhatsApp Live Bubble Preview:</span>
+                <span class="text-indigo-400 text-xs font-mono">+14155550199</span>
+              </div>
+              <div id="outreachBubblePreview" class="bg-emerald-900/30 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-100 font-sans shadow-sm whitespace-pre-wrap">
+                Hello Ali Khan! Hope you are having a wonderful week...
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/60">
+              <span>⏱️ Pacing Delay:</span>
+              <span class="font-bold text-amber-300">10 – 15 Minutes per Message</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dedicated Outreach Stations per Connected Number -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+            <span>📱</span> Dedicated Outreach Stations for Each Connected Number
           </h3>
-          <p class="text-xs text-slate-400 mt-0.5">Automatically recorded whenever someone messages any of your 4 accounts</p>
+          <span class="text-xs text-slate-400">Each number operates on its own independent 10–15 min timer</span>
         </div>
 
-        <div class="flex items-center space-x-2">
-          <input type="text" id="leadSearchInput" oninput="filterLeads()" placeholder="Search leads or phone..." class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-56">
+        <div id="outreachStationsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Rendered dynamically via JS for each connected account -->
         </div>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-slate-300">
-          <thead class="text-xs uppercase bg-slate-950 text-slate-400 border-b border-slate-800">
-            <tr>
-              <th class="px-5 py-3.5">Lead Phone Number</th>
-              <th class="px-5 py-3.5">Name / Contact</th>
-              <th class="px-5 py-3.5">Received On</th>
-              <th class="px-5 py-3.5">Messages</th>
-              <th class="px-5 py-3.5">Last Activity</th>
-              <th class="px-5 py-3.5 text-right">Quick Action</th>
-            </tr>
-          </thead>
-          <tbody id="leadsTableBody" class="divide-y divide-slate-800/60">
-            <tr>
-              <td colspan="6" class="px-5 py-10 text-center text-slate-500 text-xs">
-                No incoming replies yet. When a lead sends a message, they will instantly appear here and alert your main phone!
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    </div>
+
+    <!-- VIEW: MAIN PHONE ALERTS HISTORY -->
+    <div id="viewAlerts" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">🚨</span>
+            <h2 class="text-xl font-extrabold text-white">Main Phone Instant Alerts Log</h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-1 max-w-2xl">
+            Whenever any lead replies to any of your business accounts, the message is immediately forwarded to your main WhatsApp. Below is the live log of all alert notifications dispatched.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="text-right">
+            <div class="text-xs text-slate-400">Receiving Alert Number:</div>
+            <div id="alertsMainPhoneLabel" class="text-sm font-bold text-emerald-400">Loading...</div>
+          </div>
+          <button onclick="testAlert()" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition">
+            ⚡ Test Alert
+          </button>
+          <button onclick="fetchNotificationsLog()" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+            🔄 Refresh
+          </button>
+        </div>
       </div>
 
+      <!-- Alerts Log Table -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs uppercase bg-slate-950 text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="px-5 py-3.5">Time</th>
+                <th class="px-5 py-3.5">Business Account</th>
+                <th class="px-5 py-3.5">Sender (Lead)</th>
+                <th class="px-5 py-3.5">Message Content</th>
+                <th class="px-5 py-3.5">Alert Delivery Status</th>
+                <th class="px-5 py-3.5 text-right">Quick Action</th>
+              </tr>
+            </thead>
+            <tbody id="notificationsLogTableBody" class="divide-y divide-slate-800/60">
+              <tr>
+                <td colspan="6" class="px-5 py-10 text-center text-slate-500 text-xs">
+                  No alerts recorded yet. Send a test alert or have someone text your business accounts to see live records here!
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -187,9 +351,98 @@
     </div>
   </div>
 
+  <!-- Outreach Queue Inspector Modal -->
+  <div id="queueInspectorModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full p-6 space-y-4 shadow-2xl flex flex-col max-h-[88vh]">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 id="queueModalTitle" class="text-base font-bold text-white flex items-center gap-2">
+            <span>📋</span> Lead Queue: Business #1
+          </h3>
+          <p id="queueModalSubtitle" class="text-xs text-slate-400 mt-0.5">
+            Dedicated lead queue and delivery logs for this WhatsApp account
+          </p>
+        </div>
+        <button onclick="closeQueueInspector()" class="text-slate-400 hover:text-white text-2xl font-light leading-none">&times;</button>
+      </div>
+
+      <!-- Quick Stats & Actions Banner -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+        <div class="flex items-center gap-4 text-xs">
+          <span class="text-slate-400">Total: <b id="queueTotalCount" class="text-white">0</b></span>
+          <span class="text-indigo-400">Pending: <b id="queuePendingCount" class="text-indigo-300">0</b></span>
+          <span class="text-emerald-400">Sent: <b id="queueSentCount" class="text-emerald-300">0</b></span>
+          <span class="text-rose-400">Failed: <b id="queueFailedCount" class="text-rose-300">0</b></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="queueClearBtn" onclick="clearActiveQueue()" class="px-3 py-1 text-xs font-semibold rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 transition">
+            🗑️ Clear Pending
+          </button>
+          <button onclick="refreshActiveQueue()" class="px-3 py-1 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Queue Table -->
+      <div class="overflow-y-auto flex-1 border border-slate-800 rounded-xl">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-slate-950 uppercase text-[10px] text-slate-400 border-b border-slate-800 sticky top-0">
+            <tr>
+              <th class="px-4 py-2.5">#</th>
+              <th class="px-4 py-2.5">Phone Number</th>
+              <th class="px-4 py-2.5">Name</th>
+              <th class="px-4 py-2.5">Status</th>
+              <th class="px-4 py-2.5">Activity Time</th>
+              <th class="px-4 py-2.5">Error / Details</th>
+            </tr>
+          </thead>
+          <tbody id="queueModalTableBody" class="divide-y divide-slate-800/60">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end pt-2 border-t border-slate-800">
+        <button onclick="closeQueueInspector()" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let currentConfig = { accounts: [] };
     let cachedLeads = [];
+    let currentTab = 'accounts';
+
+    // Dedicated Daily Outreach State
+    let currentOutreachData = null;
+    let activeQueueAccountId = null;
+    let isTemplateInputDirty = false;
+
+    // Tab Navigation
+    function switchTab(tab) {
+      currentTab = tab;
+      const tabs = ['accounts', 'campaigns', 'alerts'];
+
+      tabs.forEach(t => {
+        const viewEl = document.getElementById(`view${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const btnEl = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+
+        if (t === tab) {
+          viewEl.classList.remove('hidden');
+          btnEl.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow transition flex items-center gap-1.5';
+        } else {
+          viewEl.classList.add('hidden');
+          btnEl.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition flex items-center gap-1.5';
+        }
+      });
+
+      if (tab === 'campaigns') {
+        fetchOutreachStatus();
+      } else if (tab === 'alerts') {
+        fetchNotificationsLog();
+      }
+    }
 
     // Fetch Accounts
     async function fetchAccounts() {
@@ -197,15 +450,18 @@
         const res = await fetch('/api/accounts');
         currentConfig = await res.json();
 
-        // Main phone display
+        // Main phone displays
         const phoneDisplay = document.getElementById('mainPhoneDisplay');
-        if (currentConfig.mainPhoneNumber) {
-          phoneDisplay.innerText = '+' + currentConfig.mainPhoneNumber;
-        } else {
-          phoneDisplay.innerText = 'Click to Set';
-        }
+        const alertsMainLabel = document.getElementById('alertsMainPhoneLabel');
+        const formattedPhone = currentConfig.mainPhoneNumber ? '+' + currentConfig.mainPhoneNumber : 'Click to Set';
+
+        if (phoneDisplay) phoneDisplay.innerText = formattedPhone;
+        if (alertsMainLabel) alertsMainLabel.innerText = formattedPhone;
 
         renderAccountCards();
+        if (currentTab === 'campaigns') {
+          fetchOutreachStatus();
+        }
       } catch (err) {
         console.error('Failed to fetch accounts:', err);
       }
@@ -302,7 +558,6 @@
       }
 
       tbody.innerHTML = leads.map(l => {
-        // Format phone number cleanly
         const cleanPhone = String(l.phone_number).replace(/[^0-9]/g, '');
         const displayPhone = cleanPhone ? '+' + cleanPhone : 'Unknown';
         const displayName = l.name && l.name !== cleanPhone ? l.name : '—';
@@ -346,13 +601,14 @@
       }
     }
 
-    // Test Alert
+    // Test Alert to Main Phone
     async function testAlert() {
       try {
         const res = await fetch('/api/test-alert', { method: 'POST' });
         const data = await res.json();
         if (data.success) {
           alert('✅ ' + data.message);
+          if (currentTab === 'alerts') fetchNotificationsLog();
         } else {
           alert('⚠️ ' + (data.error || 'Failed to send alert. Make sure at least one business account is connected!'));
         }
@@ -361,11 +617,522 @@
       }
     }
 
+    // ==========================================
+    // DEDICATED DAILY OUTREACH JAVASCRIPT LOGIC
+    // ==========================================
+
+    function cleanDigits(phone) {
+      if (!phone) return '';
+      return String(phone).replace(/[^0-9]/g, '');
+    }
+
+    // Insert placeholders into outreach template
+    function insertOutreachTag(tag) {
+      const textarea = document.getElementById('outreachGlobalTemplateInput');
+      if (!textarea) return;
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+      const text = textarea.value;
+      textarea.value = text.substring(0, start) + tag + text.substring(end);
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+      isTemplateInputDirty = true;
+      updateOutreachPreview();
+    }
+
+    // Live WhatsApp preview bubble
+    function updateOutreachPreview() {
+      const input = document.getElementById('outreachGlobalTemplateInput');
+      const bubble = document.getElementById('outreachBubblePreview');
+      if (!input || !bubble) return;
+      isTemplateInputDirty = true;
+
+      const template = input.value;
+      const sampleName = 'Ali Khan';
+      const samplePhone = '+14155550199';
+
+      const rendered = template
+        .replace(/\{\{\s*name\s*\}\}/gi, sampleName)
+        .replace(/\{\s*name\s*\}/gi, sampleName)
+        .replace(/\{\{\s*phone\s*\}\}/gi, samplePhone)
+        .replace(/\{\s*phone\s*\}/gi, samplePhone)
+        .replace(/\{\{\s*number\s*\}\}/gi, samplePhone)
+        .replace(/\{\s*number\s*\}/gi, samplePhone);
+
+      bubble.innerText = rendered || 'Type your message template above to see live preview...';
+    }
+
+    // Save global outreach template
+    async function saveOutreachTemplate() {
+      const input = document.getElementById('outreachGlobalTemplateInput');
+      if (!input) return;
+      const template = input.value.trim();
+      if (!template) {
+        alert('⚠️ Outreach template cannot be empty.');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/outreach/template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ template })
+        });
+        const data = await res.json();
+        if (data.success) {
+          isTemplateInputDirty = false;
+          alert('✅ ' + data.message);
+          fetchOutreachStatus();
+        } else {
+          alert('⚠️ ' + (data.error || 'Failed to save template.'));
+        }
+      } catch (err) {
+        alert('Error saving template: ' + err.message);
+      }
+    }
+
+    // Fetch live status of all outreach stations
+    async function fetchOutreachStatus() {
+      try {
+        const res = await fetch('/api/outreach/status');
+        const data = await res.json();
+        currentOutreachData = data;
+
+        // Sync template input if user is not currently actively typing
+        const templateInput = document.getElementById('outreachGlobalTemplateInput');
+        if (templateInput && (!isTemplateInputDirty || !templateInput.value.trim())) {
+          templateInput.value = data.globalTemplate || '';
+          updateOutreachPreview();
+          isTemplateInputDirty = false;
+        }
+
+        renderOutreachStations(data.accounts || []);
+      } catch (err) {
+        console.error('Failed to fetch outreach status:', err);
+      }
+    }
+
+    // Render per-account outreach station cards
+    function renderOutreachStations(accounts) {
+      const container = document.getElementById('outreachStationsGrid');
+      if (!container) return;
+
+      if (!accounts || accounts.length === 0) {
+        container.innerHTML = `<div class="col-span-2 text-center py-10 text-slate-500 text-xs">No accounts initialized.</div>`;
+        return;
+      }
+
+      container.innerHTML = accounts.map(acc => {
+        const isConnected = acc.status === 'connected';
+        const isQr = acc.status === 'qr_ready' && acc.qrCode;
+        const isConnecting = acc.status === 'connecting';
+        const cleanPhone = cleanDigits(acc.phone);
+        const state = acc.state || {};
+
+        let connBadge = '';
+        if (isConnected) {
+          connBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">● Connected (+${cleanPhone || 'Linked'})</span>`;
+        } else if (isQr) {
+          connBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Scan QR</span>`;
+        } else if (isConnecting) {
+          connBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">Connecting...</span>`;
+        } else {
+          connBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-400">Offline</span>`;
+        }
+
+        let engineBadge = '';
+        if (state.status === 'running') {
+          engineBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse">● RUNNING</span>`;
+        } else if (state.status === 'paused') {
+          engineBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">❚❚ PAUSED</span>`;
+        } else {
+          engineBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">IDLE</span>`;
+        }
+
+        return `
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between space-y-4">
+            
+            <!-- Card Header -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div class="flex items-center space-x-2">
+                <span class="text-xl">📱</span>
+                <div>
+                  <h4 class="font-bold text-sm text-white">Business #${acc.accountId}</h4>
+                  <div class="mt-0.5">${connBadge}</div>
+                </div>
+              </div>
+              <div class="text-right">
+                ${engineBadge}
+              </div>
+            </div>
+
+            <!-- Live Countdown & Pacing Indicator -->
+            <div class="bg-slate-950 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between">
+              <div>
+                <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Pacing Status:</div>
+                <div id="outreachTimer-${acc.accountId}" 
+                     data-next-run="${state.next_run_at || ''}" 
+                     data-status="${state.status || 'idle'}" 
+                     data-pending="${state.pending_count || 0}"
+                     class="text-xs font-semibold text-slate-200 mt-0.5">
+                  Checking queue...
+                </div>
+              </div>
+              <span class="text-[10px] font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                10 – 15m delay
+              </span>
+            </div>
+
+            <!-- Metrics -->
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-2">
+                <div class="text-[10px] text-slate-400 uppercase">⏳ Pending</div>
+                <div class="text-sm font-extrabold text-indigo-400 mt-0.5">${state.pending_count || 0}</div>
+              </div>
+              <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-2">
+                <div class="text-[10px] text-slate-400 uppercase">✅ Sent</div>
+                <div class="text-sm font-extrabold text-emerald-400 mt-0.5">${state.sent_count || 0}</div>
+              </div>
+              <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-2">
+                <div class="text-[10px] text-slate-400 uppercase">❌ Failed</div>
+                <div class="text-sm font-extrabold text-rose-400 mt-0.5">${state.failed_count || 0}</div>
+              </div>
+            </div>
+
+            <!-- Daily Lead Upload & Input -->
+            <div class="space-y-2 bg-slate-950/50 border border-slate-800/60 rounded-xl p-3">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold text-slate-300 flex items-center gap-1">
+                  <span>📥</span> Add Daily Leads:
+                </span>
+                <label class="cursor-pointer px-2 py-0.5 text-[11px] font-medium rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
+                  <input type="file" accept=".csv,.txt" onchange="handleLeadFileUpload(${acc.accountId}, event)" class="hidden">
+                  📁 Upload CSV / TXT
+                </label>
+              </div>
+
+              <textarea id="leadTextInput-${acc.accountId}" rows="2" 
+                placeholder="Or paste leads (Phone, Name)...&#10;14155550199, John Smith&#10;923001234567, Ali Khan" 
+                class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-600 resize-none font-mono focus:outline-none focus:border-indigo-500"></textarea>
+
+              <button onclick="submitStationLeads(${acc.accountId})" class="w-full py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-1.5 shadow">
+                + Add Daily Leads to Business #${acc.accountId}
+              </button>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="flex items-center justify-between pt-1 border-t border-slate-800">
+              <div class="flex items-center gap-2">
+                ${state.status === 'running' ? `
+                  <button onclick="pauseStation(${acc.accountId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-300 hover:bg-amber-600/30 border border-amber-500/30 transition">
+                    ❚❚ Pause
+                  </button>
+                ` : `
+                  <button onclick="resumeStation(${acc.accountId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/30 transition">
+                    ▶ Resume
+                  </button>
+                `}
+                <button onclick="openQueueInspector(${acc.accountId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+                  🔍 Inspect Queue
+                </button>
+              </div>
+
+              <button onclick="clearStationQueue(${acc.accountId})" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 transition" title="Clear Pending Leads">
+                🗑️ Clear
+              </button>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+
+      // Immediately run countdown update on newly rendered DOM
+      updateCountdownTick();
+    }
+
+    // 1-Second Smooth Countdown Ticker
+    function updateCountdownTick() {
+      const timers = document.querySelectorAll('[id^="outreachTimer-"]');
+      const now = Date.now();
+
+      timers.forEach(timerEl => {
+        const nextRunStr = timerEl.dataset.nextRun;
+        const status = timerEl.dataset.status;
+        const pending = parseInt(timerEl.dataset.pending || '0', 10);
+
+        if (pending === 0) {
+          timerEl.innerHTML = '<span class="text-slate-500">Queue Empty (Waiting for daily leads)</span>';
+          return;
+        }
+
+        if (status === 'paused') {
+          timerEl.innerHTML = '<span class="text-amber-400 font-medium">❚❚ Outreach Paused</span>';
+          return;
+        }
+
+        if (!nextRunStr) {
+          timerEl.innerHTML = '<span class="text-emerald-400 font-semibold">⚡ Ready to send next message</span>';
+          return;
+        }
+
+        const nextRunTime = new Date(nextRunStr).getTime();
+        const diffMs = nextRunTime - now;
+
+        if (diffMs <= 0) {
+          timerEl.innerHTML = '<span class="text-emerald-400 font-semibold animate-pulse">⚡ Dispatching next message now...</span>';
+        } else {
+          const totalSecs = Math.floor(diffMs / 1000);
+          const mins = Math.floor(totalSecs / 60);
+          const secs = totalSecs % 60;
+          const formatted = `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+          timerEl.innerHTML = `⏱️ Next message in: <b class="text-emerald-400">${formatted}</b>`;
+        }
+      });
+    }
+
+    // Handle CSV / TXT file upload for a station
+    async function handleLeadFileUpload(accountId, event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const text = e.target.result;
+        await sendLeadsToBackend(accountId, text);
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    // Handle manual textarea lead submission for a station
+    async function submitStationLeads(accountId) {
+      const textarea = document.getElementById(`leadTextInput-${accountId}`);
+      if (!textarea) return;
+      const text = textarea.value.trim();
+      if (!text) {
+        alert('⚠️ Please paste lead data (Phone, Name) or upload a CSV file.');
+        return;
+      }
+
+      await sendLeadsToBackend(accountId, text);
+      textarea.value = '';
+    }
+
+    // Send leads payload to backend API
+    async function sendLeadsToBackend(accountId, rawLeads) {
+      try {
+        const res = await fetch(`/api/outreach/accounts/${accountId}/leads`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rawLeads })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alert(`✅ Successfully added ${data.addedCount} lead(s) to Business #${accountId}'s queue!`);
+          fetchOutreachStatus();
+        } else {
+          alert('⚠️ ' + (data.error || 'Failed to add leads.'));
+        }
+      } catch (err) {
+        alert('Error adding leads: ' + err.message);
+      }
+    }
+
+    // Station controls: Pause
+    async function pauseStation(accountId) {
+      try {
+        const res = await fetch(`/api/outreach/accounts/${accountId}/pause`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          fetchOutreachStatus();
+        } else {
+          alert('⚠️ ' + (data.error || 'Failed to pause.'));
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Station controls: Resume
+    async function resumeStation(accountId) {
+      try {
+        const res = await fetch(`/api/outreach/accounts/${accountId}/resume`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          fetchOutreachStatus();
+        } else {
+          alert('⚠️ ' + (data.error || 'Failed to resume.'));
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // Station controls: Clear pending queue
+    async function clearStationQueue(accountId) {
+      if (!confirm(`Are you sure you want to clear all pending leads for Business #${accountId}?`)) return;
+      try {
+        const res = await fetch(`/api/outreach/accounts/${accountId}/clear`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert(`🗑️ Cleared ${data.clearedCount} pending lead(s).`);
+          fetchOutreachStatus();
+          if (activeQueueAccountId === accountId) {
+            fetchQueueModalData(accountId);
+          }
+        } else {
+          alert('⚠️ ' + (data.error || 'Failed to clear queue.'));
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    // ==========================================
+    // QUEUE INSPECTOR MODAL LOGIC
+    // ==========================================
+
+    function openQueueInspector(accountId) {
+      activeQueueAccountId = accountId;
+      document.getElementById('queueModalTitle').innerHTML = `<span>📋</span> Lead Queue: Business #${accountId}`;
+      document.getElementById('queueInspectorModal').classList.remove('hidden');
+      fetchQueueModalData(accountId);
+    }
+
+    function closeQueueInspector() {
+      document.getElementById('queueInspectorModal').classList.add('hidden');
+      activeQueueAccountId = null;
+    }
+
+    async function refreshActiveQueue() {
+      if (activeQueueAccountId) {
+        fetchQueueModalData(activeQueueAccountId);
+      }
+    }
+
+    async function clearActiveQueue() {
+      if (activeQueueAccountId) {
+        await clearStationQueue(activeQueueAccountId);
+      }
+    }
+
+    async function fetchQueueModalData(accountId) {
+      try {
+        const res = await fetch(`/api/outreach/accounts/${accountId}/queue`);
+        const data = await res.json();
+        const leads = data.leads || [];
+
+        let pendingCount = 0;
+        let sentCount = 0;
+        let failedCount = 0;
+
+        leads.forEach(l => {
+          if (l.status === 'sent') sentCount++;
+          else if (l.status === 'failed') failedCount++;
+          else pendingCount++;
+        });
+
+        document.getElementById('queueTotalCount').innerText = leads.length;
+        document.getElementById('queuePendingCount').innerText = pendingCount;
+        document.getElementById('queueSentCount').innerText = sentCount;
+        document.getElementById('queueFailedCount').innerText = failedCount;
+
+        const tbody = document.getElementById('queueModalTableBody');
+        if (leads.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500 text-xs">No leads uploaded for Business #${accountId} yet.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = leads.map((l, idx) => {
+          let badge = '';
+          if (l.status === 'sent') {
+            badge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300">Sent</span>`;
+          } else if (l.status === 'failed') {
+            badge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-500/20 text-rose-300" title="${(l.error || '').replace(/"/g, '&quot;')}">Failed</span>`;
+          } else {
+            badge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-500/20 text-indigo-300">Pending</span>`;
+          }
+
+          const timeStr = l.sent_at
+            ? new Date(l.sent_at).toLocaleTimeString()
+            : (l.created_at ? new Date(l.created_at).toLocaleDateString() : '—');
+
+          return `
+            <tr class="hover:bg-slate-800/40">
+              <td class="px-4 py-2.5 font-mono text-slate-500">${idx + 1}</td>
+              <td class="px-4 py-2.5 font-mono font-bold text-white tracking-wide">+${l.phone_number}</td>
+              <td class="px-4 py-2.5 text-slate-300">${l.name || '<span class="text-slate-500">—</span>'}</td>
+              <td class="px-4 py-2.5">${badge}</td>
+              <td class="px-4 py-2.5 text-slate-400 font-mono text-[11px]">${timeStr}</td>
+              <td class="px-4 py-2.5 text-slate-400 text-[11px] max-w-xs truncate">${l.error ? `<span class="text-rose-400">${l.error}</span>` : '—'}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to fetch queue:', err);
+      }
+    }
+
+    // ==========================================
+    // ALERTS HISTORY TO MAIN PHONE JAVASCRIPT
+    // ==========================================
+
+    async function fetchNotificationsLog() {
+      try {
+        const res = await fetch('/api/notifications/recent');
+        const logs = await res.json();
+
+        const badge = document.getElementById('alertsCountBadge');
+        if (logs.length > 0) {
+          badge.innerText = logs.length;
+          badge.classList.remove('hidden');
+        }
+
+        const tbody = document.getElementById('notificationsLogTableBody');
+        if (!logs || logs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="px-5 py-10 text-center text-slate-500 text-xs">No alerts recorded yet. When any lead messages your business accounts, an instant alert will be logged here and sent to your WhatsApp!</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = logs.map(log => {
+          const isSent = log.status === 'sent';
+          const statusBadge = isSent
+            ? `<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">✅ Alert Sent</span>`
+            : `<span class="px-2 py-0.5 rounded text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30" title="${log.error || ''}">❌ Failed</span>`;
+
+          const cleanSender = String(log.sender_phone || '').replace(/[^0-9]/g, '');
+          const timeStr = log.created_at ? new Date(log.created_at).toLocaleTimeString() + ' ' + new Date(log.created_at).toLocaleDateString() : '—';
+
+          return `
+            <tr class="hover:bg-slate-800/40 transition">
+              <td class="px-5 py-3.5 text-xs text-slate-400 font-mono">${timeStr}</td>
+              <td class="px-5 py-3.5"><span class="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-300 font-medium">Business #${log.account_id}</span></td>
+              <td class="px-5 py-3.5 font-bold text-white tracking-wide">
+                +${cleanSender}
+                ${log.sender_name ? `<div class="text-xs text-slate-400 font-normal">${log.sender_name}</div>` : ''}
+              </td>
+              <td class="px-5 py-3.5 text-slate-200 text-xs max-w-sm truncate" title="${(log.message_text || '').replace(/"/g, '&quot;')}">
+                "${log.message_text || ''}"
+              </td>
+              <td class="px-5 py-3.5">${statusBadge}</td>
+              <td class="px-5 py-3.5 text-right">
+                <a href="https://wa.me/${cleanSender}" target="_blank" class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 transition">
+                  Chat ↗
+                </a>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to fetch notifications log:', err);
+      }
+    }
+
     // Settings Modal
     function openSettingsModal() {
       document.getElementById('settingMainPhone').value = currentConfig.mainPhoneNumber || '';
       document.getElementById('settingNotificationStyle').value = currentConfig.notificationStyle || 'detailed';
-      document.getElementById('settingDebounce').value = currentConfig.debounceSeconds || 15;
+      document.getElementById('settingDebounce').value = currentConfig.debounceSeconds || 3;
       document.getElementById('settingsModal').classList.remove('hidden');
     }
 
@@ -394,10 +1161,19 @@
     // Initial load & Polling
     fetchAccounts();
     fetchStatsAndLeads();
+    fetchNotificationsLog();
+    fetchOutreachStatus();
+
+    // 3-second background polling loop
     setInterval(() => {
       fetchAccounts();
       fetchStatsAndLeads();
+      if (currentTab === 'campaigns') fetchOutreachStatus();
+      if (currentTab === 'alerts') fetchNotificationsLog();
     }, 3000);
+
+    // 1-second smooth ticking for live countdown timers
+    setInterval(updateCountdownTick, 1000);
   </script>
 </body>
 </html>

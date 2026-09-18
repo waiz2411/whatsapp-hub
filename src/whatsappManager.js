@@ -228,6 +228,53 @@ class WhatsAppManager {
     });
   }
 
+  isAccountConnected(accountId) {
+    const accState = this.accountStates.get(accountId);
+    return this.sockets.has(accountId) && accState?.status === 'connected';
+  }
+
+  getConnectedAccountIds() {
+    const ids = [];
+    for (const [accId, state] of this.accountStates.entries()) {
+      if (state.status === 'connected' && this.sockets.has(accId)) {
+        ids.push(accId);
+      }
+    }
+    return ids.sort((a, b) => a - b);
+  }
+
+  async sendMessageToPhone(accountId, phone, text, contactName = null) {
+    const cleanPhone = String(phone).replace(/[^0-9]/g, '');
+    if (!cleanPhone) {
+      throw new Error('Invalid phone number: No digits found.');
+    }
+
+    const sock = this.sockets.get(accountId);
+    if (!sock || !this.isAccountConnected(accountId)) {
+      throw new Error(`Business #${accountId} is not connected to WhatsApp.`);
+    }
+
+    const jid = `${cleanPhone}@s.whatsapp.net`;
+    try {
+      await sock.sendMessage(jid, { text });
+    } catch (err) {
+      console.error(`❌ [Business #${accountId}] Failed to send message to +${cleanPhone}:`, err.message);
+      throw err;
+    }
+
+    // Record outbound message in SQLite
+    const record = await database.recordMessage({
+      accountId,
+      leadPhone: cleanPhone,
+      leadName: contactName || null,
+      fromMe: true,
+      body: text,
+      timestamp: Date.now(),
+    });
+
+    return record;
+  }
+
   async sendMessage(accountId, toJid, text) {
     const sock = this.sockets.get(accountId);
     if (!sock || this.accountStates.get(accountId)?.status !== 'connected') {
@@ -243,8 +290,9 @@ class WhatsAppManager {
     }
   }
 
-  async broadcastToMain(mainJid, text) {
+  async broadcastToMain(mainJid, text, excludeAccountId = null) {
     for (const [accId, sock] of this.sockets.entries()) {
+      if (excludeAccountId && accId === excludeAccountId) continue;
       if (this.accountStates.get(accId)?.status === 'connected') {
         try {
           await sock.sendMessage(mainJid, { text });

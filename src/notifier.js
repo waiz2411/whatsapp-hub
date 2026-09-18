@@ -1,7 +1,40 @@
 const config = require('./config');
+const database = require('./database');
 
 // In-memory buffer to debounce rapid consecutive messages per lead
 const debounceBuffers = new Map();
+
+function cleanDigits(phone) {
+  if (!phone) return '';
+  return String(phone).replace(/[^0-9]/g, '');
+}
+
+/**
+ * Recursively unwraps Baileys nested message structures
+ * (ephemeralMessage, viewOnceMessage, viewOnceMessageV2, etc.)
+ */
+function unwrapMessage(msgObj) {
+  if (!msgObj) return null;
+  let current = msgObj;
+
+  while (current) {
+    if (current.ephemeralMessage?.message) {
+      current = current.ephemeralMessage.message;
+    } else if (current.viewOnceMessage?.message) {
+      current = current.viewOnceMessage.message;
+    } else if (current.viewOnceMessageV2?.message) {
+      current = current.viewOnceMessageV2.message;
+    } else if (current.viewOnceMessageV2Extension?.message) {
+      current = current.viewOnceMessageV2Extension.message;
+    } else if (current.documentWithCaptionMessage?.message) {
+      current = current.documentWithCaptionMessage.message;
+    } else {
+      break;
+    }
+  }
+
+  return current;
+}
 
 class Notifier {
   constructor(whatsappManager) {
@@ -26,7 +59,9 @@ class Notifier {
     if (jid.endsWith('@g.us')) return false;
 
     // Anti-loop: Ignore messages from your own main phone number
-    if (config.mainPhoneNumber && senderNumber === config.mainPhoneNumber) {
+    const cleanMain = cleanDigits(config.mainPhoneNumber);
+    const cleanSender = cleanDigits(senderNumber);
+    if (cleanMain && cleanSender === cleanMain) {
       return false;
     }
 
@@ -35,10 +70,14 @@ class Notifier {
 
   /**
    * Extract real text content from WhatsApp message.
+   * Unwraps all nested message containers (viewOnce, ephemeral, etc.)
    * Returns null if it is a protocol/sync message, reaction, or empty.
    */
   extractMessageText(msg) {
-    const message = msg?.message;
+    const rawMessage = msg?.message;
+    if (!rawMessage) return null;
+
+    const message = unwrapMessage(rawMessage);
     if (!message) return null;
 
     // Ignore pure protocol / reaction messages with no user content
@@ -56,7 +95,14 @@ class Notifier {
       (message.videoMessage ? '[Video]' : null) ||
       (message.audioMessage ? '[Voice Message]' : null) ||
       (message.contactMessage ? '[Contact Card]' : null) ||
-      (message.locationMessage ? '[Location Shared]' : null);
+      (message.locationMessage ? '[Location Shared]' : null) ||
+      message.interactiveResponseMessage?.body?.text ||
+      message.buttonsResponseMessage?.selectedDisplayText ||
+      message.buttonsResponseMessage?.selectedButtonId ||
+      message.listResponseMessage?.title ||
+      message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+      message.templateButtonReplyMessage?.selectedDisplayText ||
+      (message.pollCreationMessage ? `[Poll: ${message.pollCreationMessage.name || 'Poll'}]` : null);
 
     return text && text.trim().length > 0 ? text.trim() : null;
   }
@@ -73,6 +119,7 @@ class Notifier {
     }
 
     const bufferKey = `${accountId}_${senderNumber}`;
+    const debounceMs = Math.max(1, (config.debounceSeconds || 3)) * 1000;
 
     if (debounceBuffers.has(bufferKey)) {
       const entry = debounceBuffers.get(bufferKey);
@@ -83,7 +130,7 @@ class Notifier {
       entry.timeoutId = setTimeout(() => {
         this.dispatchNotification(accountId, senderNumber, entry.senderName, entry.messages);
         debounceBuffers.delete(bufferKey);
-      }, config.debounceSeconds * 1000);
+      }, debounceMs);
     } else {
       const timeoutId = setTimeout(() => {
         const entry = debounceBuffers.get(bufferKey);
@@ -91,7 +138,7 @@ class Notifier {
           this.dispatchNotification(accountId, senderNumber, entry.senderName, entry.messages);
           debounceBuffers.delete(bufferKey);
         }
-      }, config.debounceSeconds * 1000);
+      }, debounceMs);
 
       debounceBuffers.set(bufferKey, {
         timeoutId,
@@ -105,7 +152,13 @@ class Notifier {
    * Send formatted alert text to your main WhatsApp number
    */
   async dispatchNotification(accountId, senderPhone, senderName, messages) {
-    const mainJid = `${config.mainPhoneNumber}@s.whatsapp.net`;
+    const cleanMain = cleanDigits(config.mainPhoneNumber);
+    if (!cleanMain) {
+      console.warn('⚠️ Notification skipped: MAIN_PHONE_NUMBER is empty.');
+      return;
+    }
+
+    const mainJid = `${cleanMain}@s.whatsapp.net`;
     const messagePreview = messages.map((m) => (messages.length > 1 ? `• ${m}` : `"${m}"`)).join('\n');
     const senderDisplay = senderName ? `${senderName} (+${senderPhone})` : `+${senderPhone}`;
 
@@ -120,20 +173,47 @@ class Notifier {
         `🔗 *Open Chat:* https://wa.me/${senderPhone}`;
     }
 
+    let success = false;
+    let errorMsg = null;
+
     try {
-      const success = await this.whatsappManager.sendMessage(accountId, mainJid, notificationText);
-      if (success) {
-        console.log(`✅ Alert sent to main number (+${config.mainPhoneNumber}) from Business #${accountId}`);
+      // Check if accountId's phone number is identical to mainPhoneNumber (avoid self-send loop)
+      const accState = this.whatsappManager.accountStates.get(accountId);
+      const accPhone = cleanDigits(accState?.phoneNumber);
+
+      if (accPhone && accPhone === cleanMain) {
+        // Use another connected business account to send to the main phone
+        success = await this.whatsappManager.broadcastToMain(mainJid, notificationText, accountId);
       } else {
-        const fallbackSuccess = await this.whatsappManager.broadcastToMain(mainJid, notificationText);
-        if (fallbackSuccess) {
-          console.log(`✅ Alert dispatched via fallback account to +${config.mainPhoneNumber}`);
-        } else {
-          console.error(`❌ Could not send alert: No business accounts connected.`);
+        success = await this.whatsappManager.sendMessage(accountId, mainJid, notificationText);
+        if (!success) {
+          success = await this.whatsappManager.broadcastToMain(mainJid, notificationText, accountId);
         }
       }
+
+      if (success) {
+        console.log(`✅ Alert sent to main number (+${cleanMain}) for Business #${accountId}`);
+      } else {
+        errorMsg = 'No connected business account could reach main number.';
+        console.error(`❌ Alert delivery failed: ${errorMsg}`);
+      }
     } catch (err) {
-      console.error(`❌ Error sending notification:`, err.message);
+      errorMsg = err.message;
+      console.error(`❌ Error sending notification to main number:`, err.message);
+    }
+
+    // Persist alert log in SQLite for user visibility in the dashboard
+    try {
+      await database.logNotification({
+        accountId,
+        senderPhone,
+        senderName,
+        messageText: messages.join(' | '),
+        status: success ? 'sent' : 'failed',
+        error: errorMsg,
+      });
+    } catch (dbErr) {
+      console.error('Failed to log notification to database:', dbErr.message);
     }
   }
 }
