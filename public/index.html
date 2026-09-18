@@ -722,131 +722,164 @@
         return;
       }
 
-      container.innerHTML = accounts.map(acc => {
-        const isConnected = acc.status === 'connected';
-        const isQr = acc.status === 'qr_ready' && acc.qrCode;
-        const isConnecting = acc.status === 'connecting';
-        const cleanPhone = cleanDigits(acc.phone);
-        const state = acc.state || {};
+      // Check if all cards already exist in the grid
+      const existingCards = container.querySelectorAll('[id^="outreachStation-"]');
+      const shouldCreateCards = existingCards.length !== accounts.length;
 
-        let connBadge = '';
-        if (isConnected) {
-          connBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">● Connected (+${cleanPhone || 'Linked'})</span>`;
-        } else if (isQr) {
-          connBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Scan QR</span>`;
-        } else if (isConnecting) {
-          connBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">Connecting...</span>`;
-        } else {
-          connBadge = `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-400">Offline</span>`;
-        }
+      if (shouldCreateCards) {
+        // First-time render: build skeleton cards
+        container.innerHTML = accounts.map(acc => {
+          const accId = acc.accountId;
+          return `
+            <div id="outreachStation-${accId}" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between space-y-4">
+              
+              <!-- Card Header -->
+              <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2">
+                  <span class="text-xl">📱</span>
+                  <div>
+                    <h4 class="font-bold text-sm text-white">Business #${accId}</h4>
+                    <div id="outreachConnBadge-${accId}" class="mt-0.5"></div>
+                  </div>
+                </div>
+                <div id="outreachEngineBadge-${accId}" class="text-right"></div>
+              </div>
 
-        let engineBadge = '';
-        if (state.status === 'running') {
-          engineBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse">● RUNNING</span>`;
-        } else if (state.status === 'paused') {
-          engineBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">❚❚ PAUSED</span>`;
-        } else {
-          engineBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">IDLE</span>`;
-        }
-
-        return `
-          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between space-y-4">
-            
-            <!-- Card Header -->
-            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div class="flex items-center space-x-2">
-                <span class="text-xl">📱</span>
+              <!-- Live Countdown & Pacing Indicator -->
+              <div class="bg-slate-950 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between">
                 <div>
-                  <h4 class="font-bold text-sm text-white">Business #${acc.accountId}</h4>
-                  <div class="mt-0.5">${connBadge}</div>
+                  <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Pacing Status:</div>
+                  <div id="outreachTimer-${accId}" 
+                       data-next-run="" 
+                       data-status="idle" 
+                       data-pending="0"
+                       class="text-xs font-semibold text-slate-200 mt-0.5">
+                    Checking queue...
+                  </div>
                 </div>
-              </div>
-              <div class="text-right">
-                ${engineBadge}
-              </div>
-            </div>
-
-            <!-- Live Countdown & Pacing Indicator -->
-            <div class="bg-slate-950 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between">
-              <div>
-                <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Pacing Status:</div>
-                <div id="outreachTimer-${acc.accountId}" 
-                     data-next-run="${state.next_run_at || ''}" 
-                     data-status="${state.status || 'idle'}" 
-                     data-pending="${state.pending_count || 0}"
-                     class="text-xs font-semibold text-slate-200 mt-0.5">
-                  Checking queue...
-                </div>
-              </div>
-              <span class="text-[10px] font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                10 – 15m delay
-              </span>
-            </div>
-
-            <!-- Metrics -->
-            <div class="grid grid-cols-3 gap-2 text-center text-xs">
-              <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-2">
-                <div class="text-[10px] text-slate-400 uppercase">⏳ Pending</div>
-                <div class="text-sm font-extrabold text-indigo-400 mt-0.5">${state.pending_count || 0}</div>
-              </div>
-              <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-2">
-                <div class="text-[10px] text-slate-400 uppercase">✅ Sent</div>
-                <div class="text-sm font-extrabold text-emerald-400 mt-0.5">${state.sent_count || 0}</div>
-              </div>
-              <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-2">
-                <div class="text-[10px] text-slate-400 uppercase">❌ Failed</div>
-                <div class="text-sm font-extrabold text-rose-400 mt-0.5">${state.failed_count || 0}</div>
-              </div>
-            </div>
-
-            <!-- Daily Lead Upload & Input -->
-            <div class="space-y-2 bg-slate-950/50 border border-slate-800/60 rounded-xl p-3">
-              <div class="flex items-center justify-between text-xs">
-                <span class="font-bold text-slate-300 flex items-center gap-1">
-                  <span>📥</span> Add Daily Leads:
+                <span class="text-[10px] font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  10 – 15m delay
                 </span>
-                <label class="cursor-pointer px-2 py-0.5 text-[11px] font-medium rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
-                  <input type="file" accept=".csv,.txt" onchange="handleLeadFileUpload(${acc.accountId}, event)" class="hidden">
-                  📁 Upload CSV / TXT
-                </label>
               </div>
 
-              <textarea id="leadTextInput-${acc.accountId}" rows="2" 
-                placeholder="Or paste leads (Phone, Name)...&#10;14155550199, John Smith&#10;923001234567, Ali Khan" 
-                class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-600 resize-none font-mono focus:outline-none focus:border-indigo-500"></textarea>
+              <!-- Metrics -->
+              <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-2">
+                  <div class="text-[10px] text-slate-400 uppercase">⏳ Pending</div>
+                  <div id="outreachPending-${accId}" class="text-sm font-extrabold text-indigo-400 mt-0.5">0</div>
+                </div>
+                <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-2">
+                  <div class="text-[10px] text-slate-400 uppercase">✅ Sent</div>
+                  <div id="outreachSent-${accId}" class="text-sm font-extrabold text-emerald-400 mt-0.5">0</div>
+                </div>
+                <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-2">
+                  <div class="text-[10px] text-slate-400 uppercase">❌ Failed</div>
+                  <div id="outreachFailed-${accId}" class="text-sm font-extrabold text-rose-400 mt-0.5">0</div>
+                </div>
+              </div>
 
-              <button onclick="submitStationLeads(${acc.accountId})" class="w-full py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-1.5 shadow">
-                + Add Daily Leads to Business #${acc.accountId}
-              </button>
-            </div>
+              <!-- Daily Lead Upload & Input -->
+              <div class="space-y-2 bg-slate-950/50 border border-slate-800/60 rounded-xl p-3">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-bold text-slate-300 flex items-center gap-1">
+                    <span>📥</span> Add Daily Leads:
+                  </span>
+                  <label class="cursor-pointer px-2 py-0.5 text-[11px] font-medium rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
+                    <input type="file" id="leadFileInput-${accId}" accept=".csv,.txt" onchange="handleLeadFileUpload(${accId}, event)" class="hidden">
+                    📁 Upload CSV / TXT
+                  </label>
+                </div>
 
-            <!-- Action Controls -->
-            <div class="flex items-center justify-between pt-1 border-t border-slate-800">
-              <div class="flex items-center gap-2">
-                ${state.status === 'running' ? `
-                  <button onclick="pauseStation(${acc.accountId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-300 hover:bg-amber-600/30 border border-amber-500/30 transition">
-                    ❚❚ Pause
-                  </button>
-                ` : `
-                  <button onclick="resumeStation(${acc.accountId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/30 transition">
-                    ▶ Resume
-                  </button>
-                `}
-                <button onclick="openQueueInspector(${acc.accountId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
-                  🔍 Inspect Queue
+                <textarea id="leadTextInput-${accId}" rows="2" 
+                  placeholder="Or paste leads (Phone, Name)...&#10;14155550199, John Smith&#10;923001234567, Ali Khan" 
+                  class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 placeholder-slate-600 resize-none font-mono focus:outline-none focus:border-indigo-500"></textarea>
+
+                <button id="btnSubmitLeads-${accId}" onclick="submitStationLeads(${accId})" class="w-full py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-1.5 shadow">
+                  + Add Daily Leads to Business #${accId}
                 </button>
               </div>
 
-              <button onclick="clearStationQueue(${acc.accountId})" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 transition" title="Clear Pending Leads">
-                🗑️ Clear
-              </button>
+              <!-- Action Controls -->
+              <div class="flex items-center justify-between pt-1 border-t border-slate-800">
+                <div id="outreachControls-${accId}" class="flex items-center gap-2"></div>
+                <button onclick="clearStationQueue(${accId})" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 transition" title="Clear Pending Leads">
+                  🗑️ Clear
+                </button>
+              </div>
+
             </div>
+          `;
+        }).join('');
+      }
 
-          </div>
-        `;
-      }).join('');
+      // Update dynamic elements on existing cards WITHOUT wiping user inputs
+      accounts.forEach(acc => {
+        const accId = acc.accountId;
+        const isConnected = acc.isConnected === true || acc.status === 'connected';
+        const cleanPhone = cleanDigits(acc.phoneNumber || acc.phone || '');
+        const pendingCount = (acc.summary && acc.summary.pending !== undefined) ? acc.summary.pending : (acc.pending_count !== undefined ? acc.pending_count : 0);
+        const sentCount = (acc.summary && acc.summary.sent !== undefined) ? acc.summary.sent : (acc.sent_count !== undefined ? acc.sent_count : 0);
+        const failedCount = (acc.summary && acc.summary.failed !== undefined) ? acc.summary.failed : (acc.failed_count !== undefined ? acc.failed_count : 0);
+        const nextRun = acc.nextRunAt || acc.next_run_at || '';
+        const isPaused = acc.isActive === false || acc.status === 'paused';
+        const isRunning = !isPaused && (pendingCount > 0 || acc.status === 'running' || acc.status === 'waiting' || acc.status === 'ready' || acc.status === 'sending');
+        const engineStatus = isPaused ? 'paused' : (isRunning ? 'running' : 'idle');
 
-      // Immediately run countdown update on newly rendered DOM
+        // Connection Badge
+        const connBadgeEl = document.getElementById(`outreachConnBadge-${accId}`);
+        if (connBadgeEl) {
+          if (isConnected) {
+            connBadgeEl.innerHTML = `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">● Connected (+${cleanPhone || 'Linked'})</span>`;
+          } else {
+            connBadgeEl.innerHTML = `<span class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-400">Offline</span>`;
+          }
+        }
+
+        // Engine Status Badge
+        const engineBadgeEl = document.getElementById(`outreachEngineBadge-${accId}`);
+        if (engineBadgeEl) {
+          if (engineStatus === 'running') {
+            engineBadgeEl.innerHTML = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse">● RUNNING</span>`;
+          } else if (engineStatus === 'paused') {
+            engineBadgeEl.innerHTML = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">❚❚ PAUSED</span>`;
+          } else {
+            engineBadgeEl.innerHTML = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">IDLE</span>`;
+          }
+        }
+
+        // Timer Data Attributes
+        const timerEl = document.getElementById(`outreachTimer-${accId}`);
+        if (timerEl) {
+          timerEl.dataset.nextRun = nextRun;
+          timerEl.dataset.status = engineStatus;
+          timerEl.dataset.pending = pendingCount;
+        }
+
+        // Counts
+        const pendingEl = document.getElementById(`outreachPending-${accId}`);
+        if (pendingEl) pendingEl.innerText = pendingCount;
+        const sentEl = document.getElementById(`outreachSent-${accId}`);
+        if (sentEl) sentEl.innerText = sentCount;
+        const failedEl = document.getElementById(`outreachFailed-${accId}`);
+        if (failedEl) failedEl.innerText = failedCount;
+
+        // Controls
+        const controlsEl = document.getElementById(`outreachControls-${accId}`);
+        if (controlsEl) {
+          const pauseResumeBtn = engineStatus === 'running'
+            ? `<button onclick="pauseStation(${accId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600/20 text-amber-300 hover:bg-amber-600/30 border border-amber-500/30 transition">❚❚ Pause</button>`
+            : `<button onclick="resumeStation(${accId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/30 transition">▶ Resume</button>`;
+
+          controlsEl.innerHTML = `
+            ${pauseResumeBtn}
+            <button onclick="openQueueInspector(${accId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+              🔍 Inspect Queue
+            </button>
+          `;
+        }
+      });
+
+      // Update timer displays immediately
       updateCountdownTick();
     }
 
@@ -911,16 +944,24 @@
       const text = textarea.value.trim();
       if (!text) {
         alert('⚠️ Please paste lead data (Phone, Name) or upload a CSV file.');
+        textarea.focus();
         return;
       }
 
       await sendLeadsToBackend(accountId, text);
-      textarea.value = '';
     }
 
     // Send leads payload to backend API
     async function sendLeadsToBackend(accountId, rawLeads) {
+      const btn = document.getElementById(`btnSubmitLeads-${accountId}`);
+      const textarea = document.getElementById(`leadTextInput-${accountId}`);
+
       try {
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = `<span>⏳ Adding leads...</span>`;
+        }
+
         const res = await fetch(`/api/outreach/accounts/${accountId}/leads`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -928,13 +969,20 @@
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          alert(`✅ Successfully added ${data.addedCount} lead(s) to Business #${accountId}'s queue!`);
-          fetchOutreachStatus();
+          const count = data.addedCount || data.count || 0;
+          alert(`✅ Successfully added ${count} lead(s) to Business #${accountId}'s queue!`);
+          if (textarea) textarea.value = '';
+          await fetchOutreachStatus();
         } else {
           alert('⚠️ ' + (data.error || 'Failed to add leads.'));
         }
       } catch (err) {
         alert('Error adding leads: ' + err.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `+ Add Daily Leads to Business #${accountId}`;
+        }
       }
     }
 

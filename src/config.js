@@ -12,9 +12,9 @@ const config = {
   port: parseInt(process.env.PORT || '7860', 10),
   debounceSeconds: parseInt(process.env.DEBOUNCE_SECONDS || '3', 10),
   notificationStyle: (process.env.NOTIFICATION_STYLE || 'detailed').toLowerCase(),
-  sessionsDir: path.join(__dirname, '..', 'sessions'),
-  dataDir: path.join(__dirname, '..', 'data'),
-  dbPath: path.join(__dirname, '..', 'data', 'tracker.sqlite'),
+  sessionsDir: process.env.SESSIONS_DIR || path.join(__dirname, '..', 'sessions'),
+  dataDir: process.env.DATA_DIR || path.join(__dirname, '..', 'data'),
+  dbPath: process.env.DB_PATH || path.join(process.env.DATA_DIR || path.join(__dirname, '..', 'data'), 'tracker.sqlite'),
 
   // ============================================================================
   // 📨 MAIN OUTREACH MESSAGE TEMPLATE

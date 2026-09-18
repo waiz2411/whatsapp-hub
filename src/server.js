@@ -437,7 +437,7 @@ async function start() {
   await waManager.startAll();
   await outreachManager.startAll();
 
-  app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
     console.log(`\n======================================================`);
     console.log(`🚀 WhatsApp Multi-Hub is running!`);
     console.log(`🌐 Open dashboard: http://localhost:${config.port}`);
@@ -445,6 +445,24 @@ async function start() {
     console.log(`⏱️ Outreach Delay: ${config.outreachMinDelayMinutes} - ${config.outreachMaxDelayMinutes} minutes per number`);
     console.log(`======================================================\n`);
   });
+
+  // Graceful shutdown: cleanly disconnect sockets so WhatsApp preserves session credentials
+  const shutdown = (signal) => {
+    console.log(`\n🛑 Received ${signal}. Closing connections cleanly to preserve credentials...`);
+    for (const [id, sock] of waManager.sockets.entries()) {
+      try {
+        sock.ws?.close();
+      } catch (e) {}
+    }
+    server.close(() => {
+      console.log('Server shut down cleanly.');
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 3000);
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 start().catch((err) => {

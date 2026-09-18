@@ -236,6 +236,7 @@ class OutreachManager {
     return {
       success: true,
       count: insertedCount,
+      addedCount: insertedCount,
       message: `Added ${insertedCount} leads to Business #${accountId}'s daily outreach queue.`,
     };
   }
@@ -302,18 +303,33 @@ class OutreachManager {
       accountId,
       accountName: currentAcc.name || `Business #${accountId}`,
       phoneNumber: currentAcc.phoneNumber || null,
+      phone: currentAcc.phoneNumber || null,
       isConnected,
       isActive: Boolean(state.is_active),
       status,
       summary,
+      total_leads: summary.total,
+      pending_count: summary.pending,
+      sent_count: summary.sent,
+      failed_count: summary.failed,
       nextLead: nextPending ? { phone: nextPending.phone_number, name: nextPending.name } : null,
       currentlySending: currentlySending ? { phone: currentlySending.phone_number, name: currentlySending.name } : null,
       nextRunAt: state.next_run_at || null,
+      next_run_at: state.next_run_at || null,
       secondsRemaining,
       lastSentAt: state.last_sent_at || null,
       minDelayMinutes: state.min_delay_minutes || config.outreachMinDelayMinutes || 10,
       maxDelayMinutes: state.max_delay_minutes || config.outreachMaxDelayMinutes || 15,
       template: state.custom_template || config.outreachMessage,
+      state: {
+        account_id: accountId,
+        status: !state.is_active ? 'paused' : (summary.pending > 0 ? 'running' : 'idle'),
+        pending_count: summary.pending,
+        sent_count: summary.sent,
+        failed_count: summary.failed,
+        total_leads: summary.total,
+        next_run_at: state.next_run_at || null,
+      },
     };
   }
 

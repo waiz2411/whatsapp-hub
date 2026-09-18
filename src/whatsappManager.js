@@ -52,6 +52,16 @@ class WhatsAppManager {
       fs.mkdirSync(sessionPath, { recursive: true });
     }
 
+    // Clean up any existing socket for this account before initializing a new one
+    const existingSock = this.sockets.get(accountId);
+    if (existingSock) {
+      try {
+        existingSock.ev.removeAllListeners();
+        existingSock.end();
+      } catch (err) {}
+      this.sockets.delete(accountId);
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -119,9 +129,11 @@ class WhatsAppManager {
         if (shouldReconnect) {
           setTimeout(() => this.startAccount(accountId), 4000);
         } else {
-          console.log(`🔒 [Business #${accountId}] Logged out. Resetting session.`);
-          fs.rmSync(sessionPath, { recursive: true, force: true });
-          setTimeout(() => this.startAccount(accountId), 1000);
+          // IMPORTANT: NEVER automatically delete sessionPath here!
+          // Automatic deletion wipes credentials during network glitches, restarts, or server redeployments.
+          // Only explicit user action (clicking "Disconnect / Re-link" in UI) should delete session files.
+          console.log(`🔒 [Business #${accountId}] Logged out or session closed by WhatsApp. Re-trying in 10s...`);
+          setTimeout(() => this.startAccount(accountId), 10000);
         }
       }
     });
