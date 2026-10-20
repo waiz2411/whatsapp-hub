@@ -7,6 +7,7 @@ const {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
+  Browsers,
 } = require('@whiskeysockets/baileys');
 
 const config = require('./config');
@@ -20,6 +21,7 @@ class WhatsAppManager {
     this.notifier = new Notifier(this);
     this.contactBook = new Map(); // `${accountId}_${phone}` -> name
     this.lidToPhone = new Map(); // `${accountId}_${lid}` -> phone
+    this.connectionWatchdogs = new Map(); // accountId -> timer
 
     // Initialize state objects
     for (let i = 1; i <= config.accountsCount; i++) {
@@ -57,9 +59,15 @@ class WhatsAppManager {
     if (existingSock) {
       try {
         existingSock.ev.removeAllListeners();
-        existingSock.end();
+        existingSock.ws?.close();
+        existingSock.end(undefined);
       } catch (err) {}
       this.sockets.delete(accountId);
+    }
+
+    if (this.connectionWatchdogs.has(accountId)) {
+      clearTimeout(this.connectionWatchdogs.get(accountId));
+      this.connectionWatchdogs.delete(accountId);
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
@@ -70,14 +78,29 @@ class WhatsAppManager {
       auth: state,
       logger: pino({ level: 'silent' }),
       printQRInTerminal: false,
+      browser: Browsers.windows('Chrome'), // Emulates authentic Google Chrome on Windows to prevent WhatsApp bot detection & unlinking
       syncFullHistory: false, // Keep false for ultra-stable connection and zero timeout loops
       connectTimeoutMs: 60000,
       keepAliveIntervalMs: 25000,
+      defaultQueryTimeoutMs: 60000,
+      emitOwnEvents: false,
+      generateHighQualityLinkPreview: false,
     });
 
     this.sockets.set(accountId, sock);
 
     sock.ev.on('creds.update', saveCreds);
+
+    // Timeout watchdog: If an account is stuck in 'connecting' for over 25 seconds without a QR code,
+    // it indicates corrupt or dead session files. Auto-purge and restart to emit a fresh QR code!
+    const watchdog = setTimeout(() => {
+      const accState = this.accountStates.get(accountId);
+      if (accState && accState.status === 'connecting' && !accState.qrCode) {
+        console.log(`⏱️ [Business #${accountId}] Watchdog: Stuck in connecting with no QR. Refreshing session to generate fresh QR code...`);
+        this.logoutAccount(accountId);
+      }
+    }, 25000);
+    this.connectionWatchdogs.set(accountId, watchdog);
 
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
@@ -85,6 +108,10 @@ class WhatsAppManager {
 
       if (qr) {
         try {
+          if (this.connectionWatchdogs.has(accountId)) {
+            clearTimeout(this.connectionWatchdogs.get(accountId));
+            this.connectionWatchdogs.delete(accountId);
+          }
           const qrDataUrl = await qrcode.toDataURL(qr);
           accountState.qrCode = qrDataUrl;
           accountState.status = 'qr_ready';
@@ -99,6 +126,10 @@ class WhatsAppManager {
       }
 
       if (connection === 'open') {
+        if (this.connectionWatchdogs.has(accountId)) {
+          clearTimeout(this.connectionWatchdogs.get(accountId));
+          this.connectionWatchdogs.delete(accountId);
+        }
         accountState.status = 'connected';
         accountState.qrCode = null;
         const rawJid = sock.user?.id || '';
@@ -114,26 +145,46 @@ class WhatsAppManager {
       }
 
       if (connection === 'close') {
+        if (this.connectionWatchdogs.has(accountId)) {
+          clearTimeout(this.connectionWatchdogs.get(accountId));
+          this.connectionWatchdogs.delete(accountId);
+        }
         accountState.status = 'disconnected';
         accountState.qrCode = null;
 
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
 
         console.log(
-          `⚠️ [Business #${accountId}] Connection closed (code: ${statusCode}). Reconnecting: ${shouldReconnect}`
+          `⚠️ [Business #${accountId}] Connection closed (code: ${statusCode}). Logged out: ${isLoggedOut}`
         );
 
         await database.updateAccount(accountId, { status: 'disconnected' });
 
-        if (shouldReconnect) {
-          setTimeout(() => this.startAccount(accountId), 4000);
+        if (isLoggedOut) {
+          // Device was unlinked on phone or session token expired on WhatsApp servers (401).
+          // Stale session files CANNOT be reused and WILL PREVENT QR CODE GENERATION.
+          // We MUST wipe the stale creds and immediately generate a fresh QR code!
+          console.log(`🔒 [Business #${accountId}] Unlinked by WhatsApp (401). Purging stale auth state to generate fresh QR code...`);
+          try {
+            if (fs.existsSync(sessionPath)) {
+              fs.rmSync(sessionPath, { recursive: true, force: true });
+            }
+          } catch (e) {
+            console.error(`Failed to clear session path for #${accountId}:`, e.message);
+          }
+          accountState.phoneNumber = null;
+          accountState.qrCode = null;
+          accountState.status = 'connecting';
+          await database.updateAccount(accountId, { status: 'disconnected', phone_number: null });
+
+          // Start fresh account to generate QR immediately
+          setTimeout(() => this.startAccount(accountId), 1500);
         } else {
-          // IMPORTANT: NEVER automatically delete sessionPath here!
-          // Automatic deletion wipes credentials during network glitches, restarts, or server redeployments.
-          // Only explicit user action (clicking "Disconnect / Re-link" in UI) should delete session files.
-          console.log(`🔒 [Business #${accountId}] Logged out or session closed by WhatsApp. Re-trying in 10s...`);
-          setTimeout(() => this.startAccount(accountId), 10000);
+          // Network drop, server restart, or 515 restartRequired.
+          // Preserve creds.json! Attempt clean reconnection.
+          console.log(`🔄 [Business #${accountId}] Temporary disconnect (code: ${statusCode}). Reconnecting in 3s...`);
+          setTimeout(() => this.startAccount(accountId), 3000);
         }
       }
     });
@@ -318,19 +369,28 @@ class WhatsAppManager {
   }
 
   async logoutAccount(accountId) {
+    if (this.connectionWatchdogs.has(accountId)) {
+      clearTimeout(this.connectionWatchdogs.get(accountId));
+      this.connectionWatchdogs.delete(accountId);
+    }
     const sock = this.sockets.get(accountId);
     if (sock) {
       try {
+        sock.ev.removeAllListeners();
+        sock.ws?.close();
         await sock.logout();
       } catch (err) {}
+      this.sockets.delete(accountId);
     }
     const sessionPath = path.join(config.sessionsDir, `account_${accountId}`);
     if (fs.existsSync(sessionPath)) {
-      fs.rmSync(sessionPath, { recursive: true, force: true });
+      try {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+      } catch (err) {}
     }
     this.accountStates.set(accountId, {
       id: accountId,
-      status: 'disconnected',
+      status: 'connecting',
       qrCode: null,
       phoneNumber: null,
       name: `Business #${accountId}`,

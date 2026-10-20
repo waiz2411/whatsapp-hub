@@ -375,6 +375,9 @@
           <span class="text-rose-400">Failed: <b id="queueFailedCount" class="text-rose-300">0</b></span>
         </div>
         <div class="flex items-center gap-2">
+          <button id="queueImportBtn" onclick="importTrackedLeadsModal()" class="px-3 py-1 text-xs font-semibold rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/30 transition flex items-center gap-1" title="Import received leads from inbox">
+            📥 Import Tracked Leads
+          </button>
           <button id="queueClearBtn" onclick="clearActiveQueue()" class="px-3 py-1 text-xs font-semibold rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 transition">
             🗑️ Clear Pending
           </button>
@@ -509,10 +512,21 @@
                 <img src="${acc.qrCode}" class="w-36 h-36 mx-auto rounded">
               </div>
               <div class="text-[11px] text-slate-400">Open WhatsApp &rarr; <b>Linked Devices</b> &rarr; <b>Link a Device</b></div>
+              <div>
+                <button onclick="logoutAccount(${acc.id}, true)" class="text-xs text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1">🔄 Refresh QR Code</button>
+              </div>
             </div>
           `;
         } else {
-          content = `<div class="text-center py-10 text-slate-500 text-xs">Initializing connection...</div>`;
+          content = `
+            <div class="text-center py-8 space-y-3">
+              <div class="inline-block p-3 rounded-full bg-slate-800 text-slate-400 text-xl animate-spin">⏳</div>
+              <div class="text-slate-400 text-xs">Waiting for QR Code / Connection...</div>
+              <button onclick="logoutAccount(${acc.id}, true)" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg transition font-medium shadow">
+                🔄 Force New QR Code
+              </button>
+            </div>
+          `;
         }
 
         return `
@@ -591,8 +605,8 @@
     }
 
     // Disconnect / Reset Account
-    async function logoutAccount(id) {
-      if (!confirm(`Are you sure you want to disconnect Business #${id}?`)) return;
+    async function logoutAccount(id, isForce = false) {
+      if (!isForce && !confirm(`Are you sure you want to disconnect Business #${id}?`)) return;
       try {
         await fetch(`/api/accounts/${id}/logout`, { method: 'POST' });
         fetchAccounts();
@@ -853,6 +867,7 @@
           timerEl.dataset.nextRun = nextRun;
           timerEl.dataset.status = engineStatus;
           timerEl.dataset.pending = pendingCount;
+          timerEl.dataset.connected = isConnected ? 'true' : 'false';
         }
 
         // Counts
@@ -875,6 +890,9 @@
             <button onclick="openQueueInspector(${accId})" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
               🔍 Inspect Queue
             </button>
+            <button onclick="importTrackedLeads(${accId})" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 transition" title="Import received leads from inbox">
+              📥 Import Leads
+            </button>
           `;
         }
       });
@@ -889,9 +907,15 @@
       const now = Date.now();
 
       timers.forEach(timerEl => {
+        const isConnected = timerEl.dataset.connected === 'true';
         const nextRunStr = timerEl.dataset.nextRun;
         const status = timerEl.dataset.status;
         const pending = parseInt(timerEl.dataset.pending || '0', 10);
+
+        if (!isConnected) {
+          timerEl.innerHTML = '<span class="text-rose-400 font-medium">⚠️ Account Offline (Connect WhatsApp above)</span>';
+          return;
+        }
 
         if (pending === 0) {
           timerEl.innerHTML = '<span class="text-slate-500">Queue Empty (Waiting for daily leads)</span>';
@@ -1064,11 +1088,36 @@
       }
     }
 
+    async function importTrackedLeads(accountId) {
+      if (!confirm(`Import received incoming leads from database into Business #${accountId}'s outreach queue?`)) return;
+      try {
+        const res = await fetch(`/api/outreach/accounts/${accountId}/import-leads`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert(`✅ ${data.message}`);
+          fetchOutreachStatus();
+          if (activeQueueAccountId === accountId) {
+            fetchQueueModalData(accountId);
+          }
+        } else {
+          alert('⚠️ ' + (data.error || 'Failed to import leads.'));
+        }
+      } catch (err) {
+        alert('Error importing leads: ' + err.message);
+      }
+    }
+
+    async function importTrackedLeadsModal() {
+      if (activeQueueAccountId) {
+        await importTrackedLeads(activeQueueAccountId);
+      }
+    }
+
     async function fetchQueueModalData(accountId) {
       try {
         const res = await fetch(`/api/outreach/accounts/${accountId}/queue`);
         const data = await res.json();
-        const leads = data.leads || [];
+        const leads = Array.isArray(data) ? data : (data.leads || []);
 
         let pendingCount = 0;
         let sentCount = 0;
@@ -1087,7 +1136,16 @@
 
         const tbody = document.getElementById('queueModalTableBody');
         if (leads.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-500 text-xs">No leads uploaded for Business #${accountId} yet.</td></tr>`;
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" class="px-4 py-8 text-center text-slate-500 text-xs">
+                No leads in queue for Business #${accountId}.<br>
+                <button onclick="importTrackedLeads(${accountId})" class="mt-3 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 text-xs rounded-lg transition font-medium">
+                  📥 Import Tracked Leads Now
+                </button>
+              </td>
+            </tr>
+          `;
           return;
         }
 
@@ -1105,10 +1163,13 @@
             ? new Date(l.sent_at).toLocaleTimeString()
             : (l.created_at ? new Date(l.created_at).toLocaleDateString() : '—');
 
+          const cleanPhone = (l.phone_number || '').replace(/\D/g, '');
+          const waLink = cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" class="text-indigo-400 hover:underline font-mono font-bold">+${cleanPhone} ↗</a>` : `+${l.phone_number}`;
+
           return `
             <tr class="hover:bg-slate-800/40">
               <td class="px-4 py-2.5 font-mono text-slate-500">${idx + 1}</td>
-              <td class="px-4 py-2.5 font-mono font-bold text-white tracking-wide">+${l.phone_number}</td>
+              <td class="px-4 py-2.5">${waLink}</td>
               <td class="px-4 py-2.5 text-slate-300">${l.name || '<span class="text-slate-500">—</span>'}</td>
               <td class="px-4 py-2.5">${badge}</td>
               <td class="px-4 py-2.5 text-slate-400 font-mono text-[11px]">${timeStr}</td>

@@ -389,10 +389,40 @@ app.post('/api/outreach/accounts/:id/clear', async (req, res) => {
 app.get('/api/outreach/accounts/:id/queue', async (req, res) => {
   try {
     const accountId = parseInt(req.params.id, 10);
-    const limit = parseInt(req.query.limit || '100', 10);
+    const limit = parseInt(req.query.limit || '200', 10);
     const status = req.query.status || null;
     const leads = await database.getOutreachLeads(accountId, limit, status);
-    res.json(leads);
+    const summary = await database.getOutreachQueueSummary(accountId);
+    res.json({ success: true, accountId, leads, summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/outreach/accounts/:id/import-leads - Import real tracked leads into this account's outreach queue
+app.post('/api/outreach/accounts/:id/import-leads', async (req, res) => {
+  try {
+    const accountId = parseInt(req.params.id, 10);
+    const trackedLeads = await database.getLeads();
+    // Prefer leads that arrived on this account, or all tracked leads
+    const matching = trackedLeads.filter(l => l.account_id === accountId);
+    const pool = matching.length > 0 ? matching : trackedLeads;
+    const leadsToImport = pool.map(l => ({
+      phone: l.phone_number,
+      name: l.name && l.name !== l.phone_number ? l.name : '',
+    }));
+
+    if (leadsToImport.length === 0) {
+      return res.status(400).json({ error: 'No tracked leads available in database to import.' });
+    }
+
+    const insertedCount = await database.addOutreachLeads(accountId, leadsToImport);
+    res.json({
+      success: true,
+      count: insertedCount,
+      addedCount: insertedCount,
+      message: `Successfully imported ${insertedCount} real leads into Business #${accountId}'s queue!`,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
