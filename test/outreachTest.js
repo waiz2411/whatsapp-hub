@@ -2,8 +2,8 @@ const assert = require('assert');
 
 process.env.MAIN_PHONE_NUMBER = '923473201427';
 process.env.PORT = '3004';
-process.env.OUTREACH_MIN_DELAY_MINUTES = '10';
-process.env.OUTREACH_MAX_DELAY_MINUTES = '15';
+process.env.OUTREACH_MIN_DELAY_MINUTES = '25';
+process.env.OUTREACH_MAX_DELAY_MINUTES = '35';
 
 const database = require('../src/database');
 const { parseDailyLeadList, personalizeOutreachMessage, OutreachManager } = require('../src/outreachManager');
@@ -79,25 +79,25 @@ invalid-phone, Bob
   assert.strictEqual(next2.account_id, 2);
   console.log('  ✅ Account queues are strictly isolated per connected number');
 
-  // Test 4: 10-15 Minute Delay Setting & Countdown Calculation
-  console.log('Test 4: 10 to 15-Minute Pacing Configuration & Persistence');
-  const delayMinutes = 12.5; // within 10 to 15 min
+  // Test 4: 25-35 Minute Delay Setting & Countdown Calculation
+  console.log('Test 4: 25 to 35-Minute Pacing Configuration & Persistence');
+  const delayMinutes = 30; // within 25 to 35 min
   const nextRunAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
 
   await database.updateOutreachAccountState(1, {
     next_run_at: nextRunAt,
-    min_delay_minutes: 10,
-    max_delay_minutes: 15,
+    min_delay_minutes: 25,
+    max_delay_minutes: 35,
   });
 
   const state1 = await database.getOutreachAccountState(1);
-  assert.strictEqual(state1.min_delay_minutes, 10);
-  assert.strictEqual(state1.max_delay_minutes, 15);
+  assert.strictEqual(state1.min_delay_minutes, 25);
+  assert.strictEqual(state1.max_delay_minutes, 35);
   assert(Date.parse(state1.next_run_at) > Date.now());
 
   const remainingSeconds = Math.ceil((Date.parse(state1.next_run_at) - Date.now()) / 1000);
-  assert(remainingSeconds > 600 && remainingSeconds <= 900, 'Remaining countdown should be between 10 and 15 minutes');
-  console.log(`  ✅ 10-15 minute pacing persisted in SQLite with live countdown (${remainingSeconds}s remaining)`);
+  assert(remainingSeconds > 1500 && remainingSeconds <= 2100, 'Remaining countdown should be between 25 and 35 minutes');
+  console.log(`  ✅ 25-35 minute pacing persisted in SQLite with live countdown (${remainingSeconds}s remaining)`);
 
   // Test 5: OutreachManager controls (Pause, Resume, Clear)
   console.log('Test 5: OutreachManager Controls');

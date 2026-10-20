@@ -111,7 +111,7 @@ class OutreachManager {
     for (let i = 1; i <= config.accountsCount; i++) {
       this.startAccountWorker(i);
     }
-    console.log(`🚀 [OutreachManager] Started dedicated daily outreach workers for all ${config.accountsCount} accounts (Pacing: 10–15 min delay per number).`);
+    console.log(`🚀 [OutreachManager] Started dedicated daily outreach workers for all ${config.accountsCount} accounts (Pacing: 25–35 min delay per number).`);
   }
 
   stopAll() {
@@ -120,7 +120,7 @@ class OutreachManager {
 
   /**
    * Continuous background worker for a single connected WhatsApp account
-   * Enforces 10 to 15-minute pacing between messages from THIS number
+   * Enforces 25 to 35-minute pacing between messages from THIS number
    */
   async startAccountWorker(accountId) {
     if (this.accountWorkers.has(accountId)) return;
@@ -192,9 +192,9 @@ class OutreachManager {
             this.currentSendingItem.delete(accountId);
           }
 
-          // 5. Compute next randomized delay of 10 to 15 minutes
-          const minMin = accState.min_delay_minutes || 10;
-          const maxMin = Math.max(minMin, accState.max_delay_minutes || 15);
+          // 5. Compute next randomized delay of 25 to 35 minutes
+          const minMin = accState.min_delay_minutes || config.outreachMinDelayMinutes || 25;
+          const maxMin = Math.max(minMin, accState.max_delay_minutes || config.outreachMaxDelayMinutes || 35);
           const randomMinutes = Math.random() * (maxMin - minMin) + minMin;
           const delayMs = Math.floor(randomMinutes * 60 * 1000);
           const nextRunAtIso = new Date(Date.now() + delayMs).toISOString();
@@ -318,8 +318,8 @@ class OutreachManager {
       next_run_at: state.next_run_at || null,
       secondsRemaining,
       lastSentAt: state.last_sent_at || null,
-      minDelayMinutes: state.min_delay_minutes || config.outreachMinDelayMinutes || 10,
-      maxDelayMinutes: state.max_delay_minutes || config.outreachMaxDelayMinutes || 15,
+      minDelayMinutes: state.min_delay_minutes || config.outreachMinDelayMinutes || 25,
+      maxDelayMinutes: state.max_delay_minutes || config.outreachMaxDelayMinutes || 35,
       template: state.custom_template || config.outreachMessage,
       state: {
         account_id: accountId,

@@ -25,9 +25,9 @@ const config = {
     process.env.OUTREACH_MESSAGE ||
     "Hello {name}! Hope you are having a wonderful week. Reaching out to connect regarding our special update. Would love to share details if you're interested!",
 
-  // ⏱️ Delay in minutes between messages from the SAME number (10 to 15 minutes)
-  outreachMinDelayMinutes: parseInt(process.env.OUTREACH_MIN_DELAY_MINUTES || '10', 10),
-  outreachMaxDelayMinutes: parseInt(process.env.OUTREACH_MAX_DELAY_MINUTES || '15', 10),
+  // ⏱️ Delay in minutes between messages from the SAME number (25 to 35 minutes)
+  outreachMinDelayMinutes: parseInt(process.env.OUTREACH_MIN_DELAY_MINUTES || '25', 10),
+  outreachMaxDelayMinutes: parseInt(process.env.OUTREACH_MAX_DELAY_MINUTES || '35', 10),
 };
 
 module.exports = config;

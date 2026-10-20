@@ -165,8 +165,8 @@ async function init() {
     CREATE TABLE IF NOT EXISTS outreach_accounts (
       account_id INTEGER PRIMARY KEY,
       is_active INTEGER DEFAULT 1,
-      min_delay_minutes INTEGER DEFAULT 10,
-      max_delay_minutes INTEGER DEFAULT 15,
+      min_delay_minutes INTEGER DEFAULT 25,
+      max_delay_minutes INTEGER DEFAULT 35,
       next_run_at DATETIME,
       last_sent_at DATETIME,
       custom_template TEXT,
@@ -181,10 +181,16 @@ async function init() {
       await run(`INSERT INTO accounts (account_id, status) VALUES (?, 'disconnected')`, [i]);
     }
 
-    const existingOutreach = await get(`SELECT account_id FROM outreach_accounts WHERE account_id = ?`, [i]);
+    const existingOutreach = await get(`SELECT account_id, min_delay_minutes, max_delay_minutes FROM outreach_accounts WHERE account_id = ?`, [i]);
     if (!existingOutreach) {
       await run(
-        `INSERT INTO outreach_accounts (account_id, is_active, min_delay_minutes, max_delay_minutes) VALUES (?, 1, 10, 15)`,
+        `INSERT INTO outreach_accounts (account_id, is_active, min_delay_minutes, max_delay_minutes) VALUES (?, 1, 25, 35)`,
+        [i]
+      );
+    } else if (existingOutreach.min_delay_minutes === 10 && existingOutreach.max_delay_minutes === 15) {
+      // Migrate old default 10-15 to new 25-35 delay
+      await run(
+        `UPDATE outreach_accounts SET min_delay_minutes = 25, max_delay_minutes = 35 WHERE account_id = ?`,
         [i]
       );
     }
@@ -552,7 +558,7 @@ async function getOutreachAccountState(accountId) {
   const state = await get(`SELECT * FROM outreach_accounts WHERE account_id = ?`, [accountId]);
   if (!state) {
     await run(
-      `INSERT OR IGNORE INTO outreach_accounts (account_id, is_active, min_delay_minutes, max_delay_minutes) VALUES (?, 1, 10, 15)`,
+      `INSERT OR IGNORE INTO outreach_accounts (account_id, is_active, min_delay_minutes, max_delay_minutes) VALUES (?, 1, 25, 35)`,
       [accountId]
     );
     return get(`SELECT * FROM outreach_accounts WHERE account_id = ?`, [accountId]);
